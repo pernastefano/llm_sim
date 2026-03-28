@@ -19,9 +19,6 @@ data/
 # Keep the example template; never commit the actual secrets file.
 config/.env
 
-# ── Dependency lock (optional) ───────────────────────────────────────────────
-requirements.lock
-
 # ── Editor / OS ──────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

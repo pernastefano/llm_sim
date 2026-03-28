@@ -16,10 +16,8 @@ RUN apt-get update \
 
 # Install Python dependencies first so Docker can cache this layer
 # independently of the application code.
-# Use requirements.lock (exact pinned versions) for reproducible production
-# builds.  Regenerate it with: pip freeze > requirements.lock
-COPY requirements.lock requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.lock
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the project
 COPY . .

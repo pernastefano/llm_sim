@@ -265,38 +265,73 @@ file-picker method must be used.)
 
 ## Running with Docker
 
-### Build the image
+The **fastest way** to get started — no cloning or building required.  The
+pre-built image is published to the GitHub Container Registry at
+`ghcr.io/pernastefano/llm_sim`.
 
-```bash
-docker build -t llm-sim .
+### Quick start with docker-compose (recommended)
+
+Create a `docker-compose.yml` file anywhere on your machine with the following
+content:
+
+```yaml
+services:
+  llm-sim:
+    image: ghcr.io/pernastefano/llm_sim:latest
+    container_name: llm-sim
+    ports:
+      - "5000:5000"
+    environment:
+      - PUID=1000   # replace with your host UID: id -u
+      - PGID=1000   # replace with your host GID: id -g
+      - SECRET_KEY=change-me-to-a-random-secret
+      # - SESSION_COOKIE_SECURE=true   # uncomment when behind HTTPS
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 ```
 
-### Run with docker-compose (recommended)
+Then run:
 
 ```bash
-# 1. Create your config file from the template
-cp config/.env.example config/.env
+# Pull the latest image and start the container
+docker compose up -d
 
-# 2. Edit config/.env — at minimum set SECRET_KEY, PUID and PGID
-#    Find your host IDs with: id -u && id -g
-
-# 3. Create the data directory with the right ownership
-mkdir -p data/traces
-
-# 4. Start the stack
-docker compose up --build
+# Follow the logs
+docker compose logs -f
 ```
 
 Then open **http://localhost:5000/** in your browser.
 
-The container automatically runs Gunicorn with 4 workers. PUID/PGID are read
-from `config/.env` and applied by the entrypoint before the process starts, so
-bind-mounted files in `data/` will be owned by your host user.
+> **`SECRET_KEY`** — replace `change-me-to-a-random-secret` with a real random
+> value before going to production:
+> ```bash
+> python3 -c 'import secrets; print(secrets.token_hex(32))'
+> ```
 
 > **HTTPS in production** — put Nginx or Caddy in front of the container and
-> set `SESSION_COOKIE_SECURE=true` in `config/.env`.
+> set `SESSION_COOKIE_SECURE=true` in the `environment` block.
 
-### Run with `docker run` (manual)
+The container runs Gunicorn with 4 workers. PUID/PGID are applied by the
+entrypoint so that files written to `./data` are owned by your host user.
+
+### Pull the image manually
+
+```bash
+docker pull ghcr.io/pernastefano/llm_sim:latest
+```
+
+### Run with `docker run` (no compose file)
 
 ```bash
 mkdir -p data/traces
@@ -307,18 +342,27 @@ docker run --rm \
   -e PGID="$(id -g)" \
   -e SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')" \
   -v "$(pwd)/data":/app/data \
-  -v "$(pwd)/config":/app/config:ro \
-  llm-sim
+  ghcr.io/pernastefano/llm_sim:latest
 ```
 
 ### Run the CLI only
 
 ```bash
 # Default query
-docker run --rm -v "$(pwd)/data":/app/data llm-sim python main.py
+docker run --rm -v "$(pwd)/data":/app/data ghcr.io/pernastefano/llm_sim:latest python main.py
 
 # Custom query
-docker run --rm -v "$(pwd)/data":/app/data llm-sim python main.py "What is an LLM?"
+docker run --rm -v "$(pwd)/data":/app/data ghcr.io/pernastefano/llm_sim:latest python main.py "What is an LLM?"
+```
+
+### Build from source (optional)
+
+If you want to build the image yourself from the source code:
+
+```bash
+git clone https://github.com/pernastefano/llm_sim.git
+cd llm_sim
+docker compose up --build
 ```
 
 ---

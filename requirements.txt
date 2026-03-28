@@ -1,0 +1,12 @@
+# ── Runtime dependencies ──────────────────────────────────────────────────────
+# The LLM simulation core has NO external dependencies (pure stdlib).
+# Flask powers the web UI; Gunicorn is the production WSGI server.
+# python-dotenv loads config/.env automatically in development.
+#
+# Security note: pin to a specific minor series to avoid pulling in
+# unknown future major versions. Run `pip freeze > requirements.lock` before
+# deploying to production to record the exact installed versions.
+
+flask>=3.0,<4
+gunicorn>=21.2,<23
+python-dotenv>=1.0,<2

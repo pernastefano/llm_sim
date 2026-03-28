@@ -1,0 +1,41 @@
+# docker-compose.yml — LLM Simulation Demo
+#
+# Quick start:
+#   1. cp config/.env.example config/.env
+#   2. Edit config/.env (set SECRET_KEY, PUID, PGID)
+#   3. docker compose up --build
+#
+# The app will be available at http://localhost:5000/
+
+services:
+  llm-sim:
+    build: .
+    container_name: llm-sim
+    ports:
+      - "5000:5000"
+
+    # Load all configuration from config/.env.
+    # This injects SECRET_KEY, SESSION_COOKIE_SECURE, PUID, and PGID
+    # into the container environment.
+    env_file:
+      - ./config/.env
+
+    volumes:
+      # Persist execution traces and the audit log on the host.
+      - ./data:/app/data
+      # Mount the config directory read-only so python-dotenv can also
+      # read config/.env directly (useful when env_file is not used).
+      - ./config:/app/config:ro
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

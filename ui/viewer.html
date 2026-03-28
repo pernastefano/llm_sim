@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Trace Viewer</title>
+  <style>
+    /* ── Reset & base ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --purple:    #bc8cff;
+      --orange:    #ffa657;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --radius:    8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header a.logo { font-size: 17px; font-weight: 600; color: var(--accent); text-decoration: none; flex: 1; }
+    header a.logo:hover { text-decoration: underline; }
+    nav { display: flex; gap: 6px; }
+    nav a {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    nav a:hover, nav a.active { color: var(--text); border-color: var(--border); }
+    nav a.active { background: var(--surface2); color: var(--accent); }
+
+    #trace-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 16px 64px;
+    }
+
+    /* ── Buttons & inputs ───────────────────────────────────────────────── */
+    button, label.btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    button:hover, label.btn:hover { background: #2d333b; border-color: var(--accent); }
+    button:active { transform: scale(0.97); }
+
+    #file-input { display: none; }
+
+    /* ── Summary bar ────────────────────────────────────────────────────── */
+    #summary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .stat { display: flex; flex-direction: column; }
+    .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .stat-value { font-size: 16px; font-weight: 600; color: var(--accent); }
+
+    /* ── Step cards ─────────────────────────────────────────────────────── */
+    .step-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .step-card:hover { border-color: #484f58; }
+
+    .step-card summary {
+      list-style: none;
+      padding: 12px 16px;
+      background: var(--surface);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      user-select: none;
+    }
+    .step-card summary::-webkit-details-marker { display: none; }
+    .step-card[open] summary { border-bottom: 1px solid var(--border); }
+
+    .step-icon { font-size: 18px; width: 26px; text-align: center; }
+    .step-index { color: var(--muted); font-size: 12px; min-width: 28px; font-family: var(--font-mono); }
+    .step-name {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--orange);
+      min-width: 180px;
+    }
+    .step-desc { color: var(--muted); font-size: 13px; flex: 1; }
+
+    .step-body {
+      padding: 14px 16px;
+      background: var(--bg);
+    }
+
+    /* ── JSON renderer ──────────────────────────────────────────────────── */
+    .json-block {
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.7;
+      white-space: pre;
+    }
+
+    /* ── JSON syntax colours ─────────────────────────────────────────────── */
+    .j-key    { color: var(--accent); }
+    .j-str    { color: var(--green); }
+    .j-num    { color: var(--purple); }
+    .j-bool   { color: var(--yellow); }
+    .j-null   { color: var(--muted); }
+
+    /* ── Reasoning steps inside agent_reasoning ─────────────────────────── */
+    .reasoning-list {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0;
+    }
+    .reasoning-list li {
+      padding: 4px 0 4px 18px;
+      border-left: 2px solid var(--border);
+      margin-left: 8px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .reasoning-list li:last-child { border-left-color: var(--green); }
+
+    /* ── Probability table ──────────────────────────────────────────────── */
+    .prob-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .prob-table th {
+      text-align: left;
+      padding: 6px 10px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 500;
+    }
+    .prob-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid #21262d;
+    }
+    .prob-table tr.selected td { background: #1a3a1a; color: var(--green); font-weight: 600; }
+
+    .prob-bar-cell { width: 120px; }
+    .prob-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--accent);
+      transition: width 0.3s;
+    }
+    .prob-bar.selected { background: var(--green); }
+
+    /* ── Placeholder / error ────────────────────────────────────────────── */
+    #placeholder {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+    }
+    #placeholder .big { font-size: 48px; margin-bottom: 12px; }
+    #placeholder h2 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+
+    .error-banner {
+      background: #2d1a1a;
+      border: 1px solid var(--red);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      color: var(--red);
+      margin-bottom: 16px;
+    }
+
+    /* ── Filter bar ──────────────────────────────────────────────────────── */
+    #filter-bar {
+      display: none;
+      margin-bottom: 16px;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    #filter-bar.visible { display: flex; }
+    #filter-bar input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 6px 12px;
+      font-size: 13px;
+      width: 260px;
+    }
+    #filter-bar input:focus { outline: none; border-color: var(--accent); }
+    .filter-tag {
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+    }
+    .filter-tag.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── Footer ─────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 24px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+    footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    footer a:hover { color: var(--accent); }
+    .footer-sep { margin: 0 8px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">🧠 LLM Simulation Demo</a>
+  <nav>
+    <a href="/">Ask</a>
+    <a href="/about">How it works</a>
+    <a href="/trace" class="active">Trace Viewer</a>
+  </nav>
+</header>
+
+<main>
+  <div id="trace-toolbar">
+    <button id="auto-load-btn">⚡ Auto-load llm_trace.json</button>
+    <label class="btn" for="file-input">📂 Browse file…</label>
+    <input type="file" id="file-input" accept=".json" />
+    <button id="expand-all-btn" style="display:none">↕ Expand all</button>
+  </div>
+  <div id="filter-bar">
+    <input type="text" id="filter-input" placeholder="Filter steps by name…" />
+    <span style="color:var(--muted);font-size:12px;">Quick filter:</span>
+    <button class="filter-tag active" data-filter="">All</button>
+    <button class="filter-tag" data-filter="generation_step">generation</button>
+    <button class="filter-tag" data-filter="agent">agent</button>
+    <button class="filter-tag" data-filter="tokenization">tokens</button>
+  </div>
+
+  <div id="summary" style="display:none"></div>
+  <div id="trace-container">
+    <div id="placeholder">
+      <div class="big">📄</div>
+      <h2>No trace loaded</h2>
+      <p>Click <strong>Auto-load llm_trace.json</strong> (requires HTTP server)<br/>
+         or <strong>Browse file…</strong> to load a trace file.</p>
+      <p style="margin-top:16px;font-family:monospace;font-size:12px;color:#484f58;">
+        Tip: run  <strong style="color:var(--accent)">python -m http.server 8000</strong>
+        from the project root, then visit<br/>
+        <strong style="color:var(--accent)">http://localhost:8000/ui/viewer.html</strong>
+      </p>
+    </div>
+  </div>
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   Utility helpers
+═══════════════════════════════════════════════════════════════════════ */
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ── JSON syntax highlighter ──────────────────────────────────────────
+   Converts a plain object to an HTML string with colored spans.
+   Uses a space-efficient recursive approach rather than JSON.stringify
+   so we can colour at the value level rather than regex-on-text.
+────────────────────────────────────────────────────────────────────── */
+function renderJson(val, depth) {
+  depth = depth || 0;
+  const pad = "  ".repeat(depth);
+  const pad1 = "  ".repeat(depth + 1);
+
+  if (val === null) return '<span class="j-null">null</span>';
+  if (typeof val === "boolean") return `<span class="j-bool">${val}</span>`;
+  if (typeof val === "number") return `<span class="j-num">${val}</span>`;
+  if (typeof val === "string") return `<span class="j-str">"${escHtml(val)}"</span>`;
+
+  if (Array.isArray(val)) {
+    if (val.length === 0) return "[]";
+    // For short flat arrays keep them on one line.
+    if (val.every(v => typeof v !== "object" || v === null) && val.length <= 8) {
+      return "[" + val.map(v => renderJson(v, 0)).join(", ") + "]";
+    }
+    const items = val.map(v => pad1 + renderJson(v, depth + 1));
+    return "[\n" + items.join(",\n") + "\n" + pad + "]";
+  }
+
+  if (typeof val === "object") {
+    const keys = Object.keys(val);
+    if (keys.length === 0) return "{}";
+    const entries = keys.map(k =>
+      pad1 + `<span class="j-key">"${escHtml(k)}"</span>: ` + renderJson(val[k], depth + 1)
+    );
+    return "{\n" + entries.join(",\n") + "\n" + pad + "}";
+  }
+
+  return escHtml(String(val));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Step-type metadata
+═══════════════════════════════════════════════════════════════════════ */
+const STEP_META = {
+  "input":              { icon: "📥", color: "#58a6ff" },
+  "prompt_construction":{ icon: "🔧", color: "#ffa657" },
+  "tokenization":       { icon: "✂️",  color: "#d2a8ff" },
+  "agent_reasoning":    { icon: "🤔", color: "#f2cc60" },
+  "generation_start":   { icon: "▶️",  color: "#3fb950" },
+  "final_answer":       { icon: "✅", color: "#3fb950" },
+  _gen_step:            { icon: "⚡", color: "#bc8cff" },
+};
+
+function metaFor(name) {
+  if (name.startsWith("generation_step_")) return STEP_META._gen_step;
+  return STEP_META[name] || { icon: "📋", color: "#8b949e" };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Specialised renderers for select step types
+═══════════════════════════════════════════════════════════════════════ */
+function renderAgentReasoning(data) {
+  let html = "";
+  if (data.reasoning_steps && data.reasoning_steps.length) {
+    html += "<strong style='color:var(--muted);font-size:12px'>REASONING TRACE</strong>";
+    html += "<ul class='reasoning-list'>";
+    data.reasoning_steps.forEach(s => {
+      html += `<li>${escHtml(s)}</li>`;
+    });
+    html += "</ul>";
+  }
+  // Show the rest of the data as JSON (minus reasoning_steps to avoid duplication).
+  const rest = Object.fromEntries(Object.entries(data).filter(([k]) => k !== "reasoning_steps"));
+  if (Object.keys(rest).length) {
+    html += "<div class='json-block' style='margin-top:10px'>" + renderJson(rest) + "</div>";
+  }
+  return html;
+}
+
+function renderGenerationStep(data) {
+  const selected = data.selected_token;
+  let html = `<div style='margin-bottom:8px;font-size:12px;color:var(--muted)'>
+    Context (last 10 tokens): <code style='color:var(--text)'>${escHtml(data.context_preview)}</code><br/>
+    Partial output: <code style='color:var(--green)'>${escHtml(data.partial_output)}</code>
+  </div>`;
+
+  if (data.candidates && data.candidates.length) {
+    html += `<table class='prob-table'>
+      <thead><tr><th>#</th><th>Token</th><th>Score</th><th>Probability</th><th class='prob-bar-cell'>Bar</th></tr></thead>
+      <tbody>`;
+    data.candidates.forEach((c, i) => {
+      const isSelected = c.token === selected;
+      const barPct = Math.round(c.probability * 100);
+      html += `<tr class='${isSelected ? "selected" : ""}'>
+        <td>${i + 1}</td>
+        <td><code>${escHtml(c.token)}</code>${isSelected ? " ← selected" : ""}</td>
+        <td>${c.score}</td>
+        <td>${(c.probability * 100).toFixed(2)}%</td>
+        <td class='prob-bar-cell'>
+          <div class='prob-bar ${isSelected ? "selected" : ""}' style='width:${barPct}%'></div>
+        </td>
+      </tr>`;
+    });
+    html += "</tbody></table>";
+  }
+  return html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Main renderer
+═══════════════════════════════════════════════════════════════════════ */
+function renderStep(step, index) {
+  const meta = metaFor(step.name);
+  const details = document.createElement("details");
+  details.className = "step-card";
+  details.dataset.name = step.name;
+
+  const summary = document.createElement("summary");
+  summary.innerHTML = `
+    <span class="step-icon">${meta.icon}</span>
+    <span class="step-index">${String(index).padStart(2, "0")}</span>
+    <span class="step-name" style="color:${meta.color}">${escHtml(step.name)}</span>
+    <span class="step-desc">${escHtml(step.description)}</span>
+  `;
+
+  const body = document.createElement("div");
+  body.className = "step-body";
+
+  let inner = "";
+  if (step.name === "agent_reasoning") {
+    inner = renderAgentReasoning(step.data);
+  } else if (step.name.startsWith("generation_step_")) {
+    inner = renderGenerationStep(step.data);
+  } else {
+    inner = "<div class='json-block'>" + renderJson(step.data) + "</div>";
+  }
+  body.innerHTML = inner;
+
+  details.appendChild(summary);
+  details.appendChild(body);
+  return details;
+}
+
+function renderSummary(steps) {
+  const genSteps = steps.filter(s => s.name.startsWith("generation_step_")).length;
+  const query = (steps.find(s => s.name === "input") || {}).data?.user_query || "—";
+  const toolUsed = (steps.find(s => s.name === "agent_reasoning") || {}).data?.tool_used || "none";
+  document.getElementById("summary").innerHTML = `
+    <div class="stat"><span class="stat-label">Total steps</span><span class="stat-value">${steps.length}</span></div>
+    <div class="stat"><span class="stat-label">Generation steps</span><span class="stat-value">${genSteps}</span></div>
+    <div class="stat"><span class="stat-label">Tool used</span><span class="stat-value">${escHtml(String(toolUsed))}</span></div>
+    <div class="stat"><span class="stat-label">Query</span><span class="stat-value" style="font-size:13px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(query)}</span></div>
+  `;
+  document.getElementById("summary").style.display = "flex";
+}
+
+let _allCards = [];
+
+function renderTrace(traceData) {
+  const steps = traceData.steps || [];
+  const container = document.getElementById("trace-container");
+  container.innerHTML = "";
+  _allCards = [];
+
+  renderSummary(steps);
+
+  if (!steps.length) {
+    container.innerHTML = "<p style='color:var(--muted)'>Trace is empty.</p>";
+    return;
+  }
+
+  steps.forEach((step, i) => {
+    const card = renderStep(step, i);
+    _allCards.push(card);
+    container.appendChild(card);
+  });
+
+  document.getElementById("filter-bar").classList.add("visible");
+  document.getElementById("expand-all-btn").style.display = "";
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Loading logic
+═══════════════════════════════════════════════════════════════════════ */
+function loadTrace(json) {
+  try {
+    const data = typeof json === "string" ? JSON.parse(json) : json;
+    renderTrace(data);
+  } catch (e) {
+    showError("Failed to parse JSON: " + e.message);
+  }
+}
+
+function showError(msg) {
+  document.getElementById("trace-container").innerHTML =
+    `<div class="error-banner">⚠️ ${escHtml(msg)}</div>`;
+}
+
+// File input handler
+document.getElementById("file-input").addEventListener("change", function () {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => loadTrace(e.target.result);
+  reader.readAsText(file);
+});
+
+// Auto-fetch (works when served via HTTP server, not file://)
+document.getElementById("auto-load-btn").addEventListener("click", function () {
+  fetch("../llm_trace.json")
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .then(data => renderTrace(data))
+    .catch(err => {
+      if (location.protocol === "file:") {
+        showError(
+          "Auto-load blocked on file:// protocol. " +
+          "Run `python -m http.server 8000` from the project root, then " +
+          "visit http://localhost:8000/ui/viewer.html"
+        );
+      } else {
+        showError("Could not fetch llm_trace.json: " + err.message +
+          ".  Make sure you ran `python main.py` first.");
+      }
+    });
+});
+
+// Expand-all toggle
+let _expanded = false;
+document.getElementById("expand-all-btn").addEventListener("click", function () {
+  _expanded = !_expanded;
+  _allCards.forEach(c => { c.open = _expanded; });
+  this.textContent = _expanded ? "↕ Collapse all" : "↕ Expand all";
+});
+
+// Filter bar
+document.getElementById("filter-input").addEventListener("input", applyFilter);
+document.querySelectorAll(".filter-tag").forEach(btn => {
+  btn.addEventListener("click", function () {
+    document.querySelectorAll(".filter-tag").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    document.getElementById("filter-input").value = this.dataset.filter;
+    applyFilter();
+  });
+});
+
+function applyFilter() {
+  const q = document.getElementById("filter-input").value.toLowerCase();
+  _allCards.forEach(card => {
+    card.style.display = card.dataset.name.includes(q) ? "" : "none";
+  });
+}
+
+// Drag-and-drop support
+document.body.addEventListener("dragover", e => e.preventDefault());
+document.body.addEventListener("drop", function (e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadTrace(ev.target.result);
+  reader.readAsText(file);
+});
+
+// Auto-load when opened with ?autoload in the URL.
+// The main web UI (index.html) appends this parameter after running a query
+// so the trace viewer opens already populated with the latest trace.
+if (new URLSearchParams(window.location.search).has("autoload")) {
+  document.getElementById("auto-load-btn").click();
+}
+</script>
+
+<footer>
+  <span>© 2026 <a href="https://www.stefanoperna.it" target="_blank" rel="noopener">Stefano Perna</a></span>
+  <span class="footer-sep">·</span>
+  <a href="https://github.com/pernastefano/llm_sim" target="_blank" rel="noopener">GitHub</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,49 @@
+# ── .dockerignore — keep secrets and volatile data out of the image ───────────
+#
+# Any file listed here is excluded from the Docker build context, so it will
+# NOT be copied into any layer by "COPY . ." in the Dockerfile.
+# This is critical: config/.env contains SECRET_KEY and data/ contains the
+# audit log and per-session traces — neither should ever land in an image.
+
+# ── Secrets / config ──────────────────────────────────────────────────────────
+config/.env
+
+# ── Runtime data (audit log + traces) ────────────────────────────────────────
+data/
+
+# ── Python caches ────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# ── Development / editor artefacts ───────────────────────────────────────────
+.git/
+.gitignore
+.env
+.venv/
+venv/
+*.env.local
+
+# ── CI / testing ─────────────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── macOS / IDE ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# ── Standalone trace file written by main.py (not needed in the image) ───────
+llm_trace.json

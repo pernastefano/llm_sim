@@ -1,0 +1,530 @@
+{
+  "steps": [
+    {
+      "name": "input",
+      "description": "Raw user input received by the pipeline",
+      "data": {
+        "user_query": "What is 3/0?"
+      },
+      "timestamp": 1774686480.4572227
+    },
+    {
+      "name": "prompt_construction",
+      "description": "System prompt merged with user input into a full prompt",
+      "data": {
+        "system_prompt": "You are a helpful AI assistant. You reason step-by-step and use tools when needed. Always provide clear, concise answers.",
+        "user_input": "What is 3/0?",
+        "full_prompt": "[SYSTEM]\nYou are a helpful AI assistant. You reason step-by-step and use tools when needed. Always provide clear, concise answers.\n\n[USER]\nWhat is 3/0?\n\n[ASSISTANT]\n"
+      },
+      "timestamp": 1774686480.4572344
+    },
+    {
+      "name": "tokenization",
+      "description": "Full prompt tokenized and mapped to integer IDs",
+      "data": {
+        "token_count": 42,
+        "tokens_preview": [
+          "[",
+          "SYSTEM",
+          "]",
+          "You",
+          "are",
+          "a",
+          "helpful",
+          "AI",
+          "assistant",
+          ".",
+          "You",
+          "reason",
+          "step",
+          "-",
+          "by",
+          "-",
+          "step",
+          "and",
+          "use",
+          "tools",
+          "when",
+          "needed",
+          ".",
+          "Always",
+          "provide",
+          "clear",
+          ",",
+          "concise",
+          "answers",
+          ".",
+          "[",
+          "USER",
+          "]",
+          "What",
+          "is",
+          "3",
+          "/",
+          "0",
+          "?",
+          "[",
+          "ASSISTANT",
+          "]"
+        ],
+        "token_ids_preview": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          7,
+          14,
+          15,
+          16,
+          17,
+          16,
+          15,
+          18,
+          19,
+          20,
+          21,
+          22,
+          13,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          13,
+          4,
+          29,
+          6,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          4,
+          36,
+          6
+        ],
+        "vocabulary_size_after_encoding": 37
+      },
+      "timestamp": 1774686480.4572687
+    },
+    {
+      "name": "agent_reasoning",
+      "description": "Agent analysed the query, selected tools, and composed LLM prompt",
+      "data": {
+        "query": "What is 3/0?",
+        "reasoning_steps": [
+          "Received user query: 'What is 3/0?'",
+          "Step 1 — Intent detection: scanning for arithmetic expression.",
+          "  → Arithmetic expression found: '3/0'",
+          "  → Decision: invoke Calculator tool.",
+          "  → Calculator failed: division by zero",
+          "Step 3 — Composing internal LLM prompt.",
+          "  → No tool context available; using plain prompt.",
+          "Reasoning complete.  Handing off to LLM core."
+        ],
+        "tool_used": "calculator",
+        "tool_input": "3/0",
+        "tool_result": {
+          "tool_name": "calculator",
+          "input": "3/0",
+          "output": "",
+          "success": false,
+          "error": "division by zero"
+        },
+        "llm_prompt": "Answer the following question concisely:\nWhat is 3/0?"
+      },
+      "timestamp": 1774686480.4573424
+    },
+    {
+      "name": "generation_start",
+      "description": "LLM core is about to generate tokens one-by-one",
+      "data": {
+        "llm_prompt_preview": "Answer the following question concisely:\nWhat is 3/0?",
+        "target_token_count": 8,
+        "temperature": 0.7,
+        "top_k": 6,
+        "note": "target_tokens are pre-specified so the demo output is coherent. All probability machinery still runs as in a real LLM."
+      },
+      "timestamp": 1774686480.4573557
+    },
+    {
+      "name": "generation_step_0",
+      "description": "Step 0: sampled token 'I' (p=0.4682)",
+      "data": {
+        "step": 0,
+        "context_length": 13,
+        "context_preview": "question concisely : What is 3 / 0 ? I",
+        "candidates": [
+          {
+            "token": "I",
+            "score": 2.3841,
+            "probability": 0.4682
+          },
+          {
+            "token": "tools",
+            "score": 1.8857,
+            "probability": 0.2297
+          },
+          {
+            "token": "needed",
+            "score": 1.8534,
+            "probability": 0.2194
+          },
+          {
+            "token": "assistant",
+            "score": 0.4623,
+            "probability": 0.0301
+          },
+          {
+            "token": "following",
+            "score": 0.4429,
+            "probability": 0.0292
+          },
+          {
+            "token": "]",
+            "score": 0.289,
+            "probability": 0.0235
+          }
+        ],
+        "selected_token": "I",
+        "selected_probability": 0.4682,
+        "partial_output": "I"
+      },
+      "timestamp": 1774686480.4574268
+    },
+    {
+      "name": "generation_step_1",
+      "description": "Step 1: sampled token 'can' (p=0.9108)",
+      "data": {
+        "step": 1,
+        "context_length": 14,
+        "context_preview": "concisely : What is 3 / 0 ? I can",
+        "candidates": [
+          {
+            "token": "can",
+            "score": 3.1989,
+            "probability": 0.9108
+          },
+          {
+            "token": "is",
+            "score": 0.72,
+            "probability": 0.0264
+          },
+          {
+            "token": "use",
+            "score": 0.4708,
+            "probability": 0.0185
+          },
+          {
+            "token": "you",
+            "score": 0.4597,
+            "probability": 0.0182
+          },
+          {
+            "token": "/",
+            "score": 0.2882,
+            "probability": 0.0142
+          },
+          {
+            "token": "concisely",
+            "score": 0.1588,
+            "probability": 0.0118
+          }
+        ],
+        "selected_token": "can",
+        "selected_probability": 0.9108,
+        "partial_output": "I can"
+      },
+      "timestamp": 1774686480.4574578
+    },
+    {
+      "name": "generation_step_2",
+      "description": "Step 2: sampled token 'help' (p=0.9884)",
+      "data": {
+        "step": 2,
+        "context_length": 15,
+        "context_preview": ": What is 3 / 0 ? I can help",
+        "candidates": [
+          {
+            "token": "help",
+            "score": 6.0838,
+            "probability": 0.9884
+          },
+          {
+            "token": "Answer",
+            "score": 2.5223,
+            "probability": 0.0061
+          },
+          {
+            "token": "concise",
+            "score": 1.9319,
+            "probability": 0.0026
+          },
+          {
+            "token": "when",
+            "score": 1.8166,
+            "probability": 0.0022
+          },
+          {
+            "token": "0",
+            "score": 0.6532,
+            "probability": 0.0004
+          },
+          {
+            "token": "You",
+            "score": 0.3283,
+            "probability": 0.0003
+          }
+        ],
+        "selected_token": "help",
+        "selected_probability": 0.9884,
+        "partial_output": "I can help"
+      },
+      "timestamp": 1774686480.4574857
+    },
+    {
+      "name": "generation_step_3",
+      "description": "Step 3: sampled token 'you' (p=0.9890)",
+      "data": {
+        "step": 3,
+        "context_length": 16,
+        "context_preview": "What is 3 / 0 ? I can help you",
+        "candidates": [
+          {
+            "token": "you",
+            "score": 6.0623,
+            "probability": 0.989
+          },
+          {
+            "token": "USER",
+            "score": 2.1139,
+            "probability": 0.0035
+          },
+          {
+            "token": "use",
+            "score": 2.0765,
+            "probability": 0.0033
+          },
+          {
+            "token": "Always",
+            "score": 1.9779,
+            "probability": 0.0029
+          },
+          {
+            "token": "AI",
+            "score": 1.1948,
+            "probability": 0.0009
+          },
+          {
+            "token": "helpful",
+            "score": 0.3999,
+            "probability": 0.0003
+          }
+        ],
+        "selected_token": "you",
+        "selected_probability": 0.989,
+        "partial_output": "I can help you"
+      },
+      "timestamp": 1774686480.4575078
+    },
+    {
+      "name": "generation_step_4",
+      "description": "Step 4: sampled token 'with' (p=0.9986)",
+      "data": {
+        "step": 4,
+        "context_length": 17,
+        "context_preview": "is 3 / 0 ? I can help you with",
+        "candidates": [
+          {
+            "token": "with",
+            "score": 7.168,
+            "probability": 0.9986
+          },
+          {
+            "token": "step",
+            "score": 2.3728,
+            "probability": 0.0011
+          },
+          {
+            "token": "USER",
+            "score": 0.8413,
+            "probability": 0.0001
+          },
+          {
+            "token": "0",
+            "score": 0.2708,
+            "probability": 0.0001
+          },
+          {
+            "token": "tools",
+            "score": 0.9497,
+            "probability": 0.0001
+          },
+          {
+            "token": "help",
+            "score": 0.0725,
+            "probability": 0.0
+          }
+        ],
+        "selected_token": "with",
+        "selected_probability": 0.9986,
+        "partial_output": "I can help you with"
+      },
+      "timestamp": 1774686480.4575303
+    },
+    {
+      "name": "generation_step_5",
+      "description": "Step 5: sampled token 'that' (p=0.9419)",
+      "data": {
+        "step": 5,
+        "context_length": 18,
+        "context_preview": "3 / 0 ? I can help you with that",
+        "candidates": [
+          {
+            "token": "that",
+            "score": 4.9611,
+            "probability": 0.9419
+          },
+          {
+            "token": "ASSISTANT",
+            "score": 2.7139,
+            "probability": 0.038
+          },
+          {
+            "token": "and",
+            "score": 1.8368,
+            "probability": 0.0109
+          },
+          {
+            "token": "clear",
+            "score": 1.3183,
+            "probability": 0.0052
+          },
+          {
+            "token": "concisely",
+            "score": 0.9357,
+            "probability": 0.003
+          },
+          {
+            "token": "with",
+            "score": 0.2226,
+            "probability": 0.0011
+          }
+        ],
+        "selected_token": "that",
+        "selected_probability": 0.9419,
+        "partial_output": "I can help you with that"
+      },
+      "timestamp": 1774686480.457553
+    },
+    {
+      "name": "generation_step_6",
+      "description": "Step 6: sampled token 'question' (p=0.9036)",
+      "data": {
+        "step": 6,
+        "context_length": 19,
+        "context_preview": "/ 0 ? I can help you with that question",
+        "candidates": [
+          {
+            "token": "question",
+            "score": 4.7083,
+            "probability": 0.9036
+          },
+          {
+            "token": "helpful",
+            "score": 2.9891,
+            "probability": 0.0775
+          },
+          {
+            "token": "ASSISTANT",
+            "score": 1.382,
+            "probability": 0.0078
+          },
+          {
+            "token": "use",
+            "score": 1.2685,
+            "probability": 0.0066
+          },
+          {
+            "token": "I",
+            "score": 0.6045,
+            "probability": 0.0026
+          },
+          {
+            "token": ".",
+            "score": 0.3779,
+            "probability": 0.0019
+          }
+        ],
+        "selected_token": "question",
+        "selected_probability": 0.9036,
+        "partial_output": "I can help you with that question"
+      },
+      "timestamp": 1774686480.457574
+    },
+    {
+      "name": "generation_step_7",
+      "description": "Step 7: sampled token '.' (p=0.9862)",
+      "data": {
+        "step": 7,
+        "context_length": 20,
+        "context_preview": "0 ? I can help you with that question .",
+        "candidates": [
+          {
+            "token": ".",
+            "score": 6.2023,
+            "probability": 0.9862
+          },
+          {
+            "token": "SYSTEM",
+            "score": 2.9213,
+            "probability": 0.0091
+          },
+          {
+            "token": "Always",
+            "score": 2.3335,
+            "probability": 0.0039
+          },
+          {
+            "token": "assistant",
+            "score": 0.6428,
+            "probability": 0.0004
+          },
+          {
+            "token": "with",
+            "score": 0.5555,
+            "probability": 0.0003
+          },
+          {
+            "token": "you",
+            "score": 0.0523,
+            "probability": 0.0002
+          }
+        ],
+        "selected_token": ".",
+        "selected_probability": 0.9862,
+        "partial_output": "I can help you with that question ."
+      },
+      "timestamp": 1774686480.4575987
+    },
+    {
+      "name": "final_answer",
+      "description": "Final answer assembled from tool output and generated text",
+      "data": {
+        "tool_name": "calculator",
+        "tool_output": null,
+        "generated_text": "I can help you with that question .",
+        "final_answer": "[Generated response]\nI can help you with that question ."
+      },
+      "timestamp": 1774686480.4576025
+    }
+  ]
+}

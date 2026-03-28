@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How it works — LLM Simulation Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --purple:    #bc8cff;
+      --orange:    #ffa657;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --radius:    10px;
+      --content-w: 780px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header a.logo { font-size: 17px; font-weight: 600; color: var(--accent); text-decoration: none; flex: 1; }
+    header a.logo:hover { text-decoration: underline; }
+    nav { display: flex; gap: 6px; }
+    nav a {
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    nav a:hover, nav a.active { color: var(--text); border-color: var(--border); }
+    nav a.active { background: var(--surface2); color: var(--accent); }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    .page-wrap {
+      display: flex;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+      gap: 40px;
+      align-items: flex-start;
+    }
+
+    /* ── Sidebar ToC ─────────────────────────────────────────────────────── */
+    .toc {
+      width: 200px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 70px;
+    }
+    .toc-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .toc ol { list-style: none; padding: 0; }
+    .toc li { margin-bottom: 2px; }
+    .toc a {
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      display: block;
+      padding: 4px 8px;
+      border-radius: 5px;
+      transition: color .15s, background .15s;
+      border-left: 2px solid transparent;
+    }
+    .toc a:hover { color: var(--text); background: var(--surface); }
+    .toc a.active { color: var(--accent); border-left-color: var(--accent); background: var(--surface); }
+    .toc .sub { padding-left: 18px; }
+
+    /* ── Content ─────────────────────────────────────────────────────────── */
+    article { flex: 1; min-width: 0; max-width: var(--content-w); }
+
+    /* Section */
+    .section {
+      margin-bottom: 56px;
+      scroll-margin-top: 80px;
+    }
+
+    .section-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    h2 .icon { font-size: 26px; }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--orange);
+      margin: 22px 0 8px;
+    }
+
+    p { margin-bottom: 14px; color: #cdd9e5; }
+    p:last-child { margin-bottom: 0; }
+
+    strong { color: var(--text); }
+    em { font-style: italic; color: var(--muted); }
+    code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--purple);
+    }
+
+    /* ── Callout boxes ───────────────────────────────────────────────────── */
+    .callout {
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin: 18px 0;
+      border: 1px solid;
+      font-size: 14px;
+    }
+    .callout-title { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
+    .callout.info   { background: #0d1f33; border-color: var(--accent);  color: #a5c8f0; }
+    .callout.info   .callout-title { color: var(--accent); }
+    .callout.sim    { background: #1a2a1a; border-color: var(--green);  color: #9de0a0; }
+    .callout.sim    .callout-title { color: var(--green); }
+    .callout.warn   { background: #1f1a00; border-color: var(--yellow); color: #e0c97a; }
+    .callout.warn   .callout-title { color: var(--yellow); }
+    .callout.detail { background: #1a1225; border-color: var(--purple); color: #c8abf0; }
+    .callout.detail .callout-title { color: var(--purple); }
+
+    /* ── Diagrams (ASCII-style boxes) ────────────────────────────────────── */
+    .diagram {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.8;
+      overflow-x: auto;
+      margin: 16px 0;
+      color: var(--text);
+      white-space: pre;
+    }
+    .diagram .hl  { color: var(--accent); }
+    .diagram .g   { color: var(--green); }
+    .diagram .y   { color: var(--yellow); }
+    .diagram .p   { color: var(--purple); }
+    .diagram .o   { color: var(--orange); }
+    .diagram .m   { color: var(--muted); }
+
+    /* ── Formula boxes ───────────────────────────────────────────────────── */
+    .formula {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--purple);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+      margin: 14px 0;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--purple);
+    }
+    .formula .comment { color: var(--muted); font-style: italic; }
+
+    /* ── Step pipeline ───────────────────────────────────────────────────── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin: 16px 0;
+    }
+    .pipe-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      transition: background .15s;
+    }
+    .pipe-step:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+    .pipe-step:last-child  { border-radius: 0 0 var(--radius) var(--radius); border-bottom: 1px solid var(--border); }
+    .pipe-step:hover { background: var(--surface2); }
+    .pipe-icon { font-size: 20px; width: 28px; text-align: center; flex-shrink: 0; margin-top: 1px; }
+    .pipe-body {}
+    .pipe-name { font-weight: 700; font-size: 14px; color: var(--orange); }
+    .pipe-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .pipe-arrow {
+      text-align: center;
+      color: var(--border);
+      font-size: 18px;
+      line-height: 1;
+      margin: -1px 0;
+      z-index: 1;
+      position: relative;
+    }
+
+    /* ── Comparison table ────────────────────────────────────────────────── */
+    .compare {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 13px;
+    }
+    .compare th {
+      background: var(--surface2);
+      padding: 10px 14px;
+      text-align: left;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .compare th.real  { color: var(--accent); }
+    .compare th.sim   { color: var(--green); }
+    .compare td {
+      padding: 9px 14px;
+      border: 1px solid var(--border);
+      vertical-align: top;
+      color: #cdd9e5;
+    }
+    .compare tr:nth-child(even) td { background: var(--surface); }
+
+    /* ── Token probability demo ──────────────────────────────────────────── */
+    .prob-demo {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin: 16px 0;
+    }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 7px;
+    }
+    .prob-row:last-child { margin-bottom: 0; }
+    .prob-tok {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      width: 90px;
+      color: var(--text);
+    }
+    .prob-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 10px; overflow: hidden; }
+    .prob-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+    .prob-bar-fill.winner { background: var(--green); }
+    .prob-pct { font-family: var(--font-mono); font-size: 12px; color: var(--muted); width: 52px; text-align: right; }
+    .prob-row.winner .prob-tok { color: var(--green); font-weight: 700; }
+    .prob-row.winner .prob-pct { color: var(--green); }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Footer ─────────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 24px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+    footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    footer a:hover { color: var(--accent); }
+    .footer-sep { margin: 0 8px; }
+    @media (max-width: 780px) {
+      .toc { display: none; }
+      .page-wrap { padding: 20px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">🧠 LLM Simulation Demo</a>
+  <nav>
+    <a href="/">Ask</a>
+    <a href="/about" class="active">How it works</a>
+    <a href="/trace">Trace Viewer</a>
+  </nav>
+</header>
+
+<div class="page-wrap">
+
+  <!-- ── Table of contents ──────────────────────────────────────────── -->
+  <aside class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#what-is-llm">1. What is an LLM?</a></li>
+      <li><a href="#tokenization">2. Tokenization</a></li>
+      <li><a href="#embeddings">3. Embeddings</a></li>
+      <li><a href="#attention">4. Attention</a></li>
+      <li><a href="#generation">5. Generation loop</a></li>
+      <li><a href="#softmax">6. Softmax & temperature</a></li>
+      <li><a href="#agents">7. Agents & tools</a></li>
+      <li><a href="#simulation">8. This simulation</a></li>
+      <li><a href="#limits">9. Limitations</a></li>
+    </ol>
+  </aside>
+
+  <!-- ── Article ────────────────────────────────────────────────────── -->
+  <article>
+
+    <div style="margin-bottom:36px">
+      <h1 style="font-size:28px;font-weight:700;margin-bottom:8px">How a Large Language Model works</h1>
+      <p style="color:var(--muted);font-size:14px">
+        A deep dive into the real mechanics — and how this project simulates them.
+      </p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="what-is-llm">
+      <h2><span class="icon">🧠</span> 1. What is a Large Language Model?</h2>
+
+      <p>
+        A <strong>Large Language Model (LLM)</strong> is a neural network trained to predict
+        the most likely next word (or <em>token</em>) given everything that came before it.
+        That's it. The surprising thing is that a single objective — predict the next token —
+        turns out to be enough to learn grammar, facts, reasoning patterns, and even code,
+        if you train on enough text.
+      </p>
+
+      <p>
+        Modern LLMs are built on the <strong>Transformer architecture</strong> (introduced by
+        Google in 2017). A Transformer stacks many identical layers, each of which applies
+        a mechanism called <em>self-attention</em> to find relationships between all tokens
+        in the current context simultaneously.
+      </p>
+
+      <div class="callout info">
+        <div class="callout-title">📏 Scale matters</div>
+        GPT-4 has an estimated 1 trillion parameters; LLaMA 3 (70B) has 70 billion.
+        Every parameter is a number that was tuned during training to minimise a
+        single objective: predict the next token. The "knowledge" of an LLM is
+        entirely encoded in those numbers.
+      </div>
+
+      <p>
+        The pipeline from text to answer involves four conceptually distinct stages:
+        <strong>tokenize → embed → process → generate</strong>.
+        The rest of this page explains each one.
+      </p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="tokenization">
+      <h2><span class="icon">✂️</span> 2. Tokenization — text becomes numbers</h2>
+
+      <p>
+        Neural networks can only process numbers, so the first step is converting text
+        into a sequence of integers called <strong>token IDs</strong>. A tokenizer
+        splits the input string into <em>tokens</em> — units that may be whole words,
+        sub-words, or single characters — and maps each to an integer from a fixed
+        vocabulary.
+      </p>
+
+      <h3>Real LLMs: Byte-Pair Encoding (BPE)</h3>
+      <p>
+        Most modern LLMs use <strong>BPE</strong> or a variant (SentencePiece, WordPiece).
+        BPE starts with a vocabulary of individual bytes and repeatedly merges the most
+        frequent adjacent pair. This lets the tokenizer handle any input (it can always
+        fall back to byte-level) while keeping common words as single tokens.
+      </p>
+
+      <div class="diagram">
+  Input:  <span class="hl">"tokenization"</span>
+
+  GPT-4 BPE splits this as:
+    <span class="g">"token"</span>  →  <span class="p">2963</span>
+    <span class="g">"ization"</span>  →  <span class="p">2065</span>
+
+  So the input becomes the sequence:  <span class="p">[ 2963, 2065 ]</span>
+
+  Vocabulary size: <span class="y">~100 000 tokens</span> (varies by model)</div>
+
+      <h3>Why sub-word tokenization?</h3>
+      <p>
+        Pure word-based tokenizers fail on rare words and typos.
+        Character-based tokenizers produce very long sequences and slow down training.
+        Sub-word tokenization is the sweet spot: common words are one token,
+        rare words are split into familiar sub-parts.
+      </p>
+
+      <div class="callout sim">
+        <div class="callout-title">🔬 In this simulation</div>
+        <code>SimpleTokenizer</code> uses a regex to split on whitespace and punctuation
+        (<code>\w+|[^\w\s]</code>) and assigns a fresh integer ID to every new surface form
+        it encounters. The vocabulary grows dynamically at runtime. This makes the
+        encode/decode pipeline fully transparent and easy to inspect in the trace —
+        but it is <em>not</em> how real tokenizers work.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="embeddings">
+      <h2><span class="icon">🔢</span> 3. Embeddings — numbers become vectors</h2>
+
+      <p>
+        A token ID like <code>2963</code> is just an index. Before the Transformer can
+        work with it, each ID is converted into a <strong>dense vector</strong> (a list of
+        floating-point numbers, typically 768–8192 dimensions) called an
+        <strong>embedding</strong>.
+      </p>
+
+      <p>
+        Think of an embedding as a point in a very high-dimensional space. The training
+        process arranges these points so that semantically similar tokens end up nearby:
+        <em>"king"</em> and <em>"queen"</em> are close; <em>"banana"</em> and
+        <em>"circuit"</em> are far apart.
+      </p>
+
+      <div class="diagram">
+  Token   →  Embedding  (simplified to 4 dimensions for readability)
+
+  <span class="g">"king"</span>    →  <span class="p">[ 0.82, -0.31,  0.54,  0.11 ]</span>
+  <span class="g">"queen"</span>   →  <span class="p">[ 0.79, -0.28,  0.53,  0.14 ]</span>   <span class="m">← very similar</span>
+  <span class="g">"banana"</span>  →  <span class="p">[-0.12,  0.67, -0.44,  0.89 ]</span>   <span class="m">← different region</span>
+
+  Real models use 768 – 8192 dimensions.</div>
+
+      <div class="callout warn">
+        <div class="callout-title">⚠️ Simulation gap</div>
+        This project skips embeddings entirely. There are no learned vector
+        representations here — we go directly from token IDs to the scoring step.
+        This is the biggest simplification in the simulation.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="attention">
+      <h2><span class="icon">👁️</span> 4. Attention — context shapes meaning</h2>
+
+      <p>
+        The core innovation of the Transformer is <strong>self-attention</strong>.
+        At each layer, every token looks at every other token and decides how much
+        it should "attend to" them when building its own representation.
+      </p>
+
+      <p>
+        Concretely: for each token, three vectors are computed —
+        <strong>Query (Q)</strong>, <strong>Key (K)</strong>, and <strong>Value (V)</strong>.
+        Attention scores are the dot product of Q with all K vectors, normalised by
+        softmax. The output is a weighted sum of V vectors.
+      </p>
+
+      <div class="formula">
+Attention(Q, K, V) = softmax( Q·Kᵀ / √dₖ ) · V
+
+<span class="comment">dₖ = dimension of the key vectors (scaling prevents vanishing gradients)</span></div>
+
+      <p>
+        In plain English: <em>"The word 'it' in 'The animal was tired because it…' attends
+        strongly to 'animal', so the model represents 'it' as meaning 'the animal'."</em>
+        Attention allows the model to resolve such references regardless of how far apart
+        the tokens are.
+      </p>
+
+      <h3>Multi-head attention</h3>
+      <p>
+        In practice, attention is computed <em>h</em> times in parallel with
+        different learned projections (the "heads"). Each head can specialise in a
+        different type of relationship: one might track syntax, another coreference,
+        another semantic similarity. The outputs of all heads are concatenated
+        and projected back to the model dimension.
+      </p>
+
+      <div class="callout warn">
+        <div class="callout-title">⚠️ Simulation gap</div>
+        This project does not implement attention. There are no Q/K/V matrices.
+        The "context" used during generation is simply the list of token IDs
+        that have been generated so far — useful for the repetition penalty,
+        but not a real representation.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="generation">
+      <h2><span class="icon">⚡</span> 5. The generation loop — one token at a time</h2>
+
+      <p>
+        LLMs generate text <strong>autoregressively</strong>: one token at a time,
+        each new token conditioned on everything generated so far.
+      </p>
+
+      <div class="pipeline">
+        <div class="pipe-step">
+          <div class="pipe-icon">📥</div>
+          <div class="pipe-body">
+            <div class="pipe-name">Input context</div>
+            <div class="pipe-desc">All tokens generated so far (prompt + previous output) form the context window.</div>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">🔢</div>
+          <div class="pipe-body">
+            <div class="pipe-name">Forward pass</div>
+            <div class="pipe-desc">The full context is fed through all Transformer layers (embedding → attention × N → layer norm).</div>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">📊</div>
+          <div class="pipe-body">
+            <div class="pipe-name">Logits</div>
+            <div class="pipe-desc">The final layer projects to vocabulary size, producing a raw score (logit) for every possible next token.</div>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">🎲</div>
+          <div class="pipe-body">
+            <div class="pipe-name">Sampling</div>
+            <div class="pipe-desc">Logits are converted to probabilities via softmax (with temperature). One token is sampled from the distribution.</div>
+          </div>
+        </div>
+        <div class="pipe-step">
+          <div class="pipe-icon">🔁</div>
+          <div class="pipe-body">
+            <div class="pipe-name">Append & repeat</div>
+            <div class="pipe-desc">The sampled token is appended to the context. The loop repeats until an EOS token is generated or max length is reached.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <div class="callout-title">📐 Context window</div>
+        Every forward pass must process the <em>entire</em> context, which is why
+        the context window size is such an important parameter. GPT-4 supports
+        up to 128 000 tokens; Claude 3.5 up to 200 000. Attention's O(n²) complexity
+        makes very long contexts expensive.
+      </div>
+
+      <div class="callout sim">
+        <div class="callout-title">🔬 In this simulation</div>
+        The generation loop in <code>LLMCore.generate()</code> does iterate token-by-token.
+        For each step it:
+        <ol style="margin: 6px 0 0 16px; font-size: 13px; line-height:1.9">
+          <li>Draws <code>top_k</code> candidate tokens (the correct one + random distractors from the vocabulary).</li>
+          <li>Assigns a pseudo-random base score to each candidate.</li>
+          <li>Applies a <strong>repetition penalty</strong> to tokens seen in the last 10 context tokens.</li>
+          <li>Boosts the target token so the demo output remains coherent.</li>
+          <li>Applies temperature-scaled softmax.</li>
+          <li>Logs the full probability table to the trace.</li>
+        </ol>
+        The forward pass through a real neural network is replaced by the scoring heuristics above.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="softmax">
+      <h2><span class="icon">🌡️</span> 6. Softmax &amp; temperature — shaping the distribution</h2>
+
+      <p>
+        After the forward pass, the model has a raw score (logit) for every token in the
+        vocabulary. <strong>Softmax</strong> converts those scores into a proper probability
+        distribution: all values become positive and sum to exactly 1.
+      </p>
+
+      <div class="formula">
+P(tokenᵢ) = exp(logitᵢ / T) / Σⱼ exp(logitⱼ / T)
+
+<span class="comment">T = temperature  (default 1.0 in most models)</span></div>
+
+      <h3>What does temperature do?</h3>
+      <p>
+        Temperature <em>T</em> is applied as a divisor before the exponential:
+      </p>
+      <ul style="margin: 0 0 14px 20px; color: #cdd9e5; font-size:14px; line-height:2">
+        <li><strong>T = 1.0</strong> — the model's learned distribution, unchanged.</li>
+        <li><strong>T &lt; 1</strong> — sharpens the distribution; the top token becomes even more dominant. More deterministic, less creative.</li>
+        <li><strong>T &gt; 1</strong> — flattens the distribution; gives more probability mass to unlikely tokens. More diverse, more "creative" (and more likely to be wrong).</li>
+        <li><strong>T → 0</strong> — <em>greedy decoding</em>: always picks the single most probable token.</li>
+      </ul>
+
+      <p>Here's an example showing how temperature changes a concrete distribution:</p>
+
+      <div class="prob-demo">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Context: "The capital of France is" → next token</div>
+
+        <div style="font-size:11px;color:var(--accent);margin-bottom:6px">T = 0.5 (sharp, deterministic)</div>
+        <div class="prob-row winner">
+          <div class="prob-tok">"Paris"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill winner" style="width:96%"></div></div>
+          <div class="prob-pct">96.1%</div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-tok">"Lyon"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill" style="width:3%"></div></div>
+          <div class="prob-pct">2.8%</div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-tok">"Nice"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill" style="width:1%"></div></div>
+          <div class="prob-pct">1.1%</div>
+        </div>
+
+        <div style="font-size:11px;color:var(--yellow);margin:14px 0 6px">T = 1.5 (flat, creative)</div>
+        <div class="prob-row winner">
+          <div class="prob-tok">"Paris"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill winner" style="width:54%"></div></div>
+          <div class="prob-pct">54.3%</div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-tok">"Lyon"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill" style="width:24%"></div></div>
+          <div class="prob-pct">23.7%</div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-tok">"Nice"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill" style="width:14%"></div></div>
+          <div class="prob-pct">14.1%</div>
+        </div>
+        <div class="prob-row">
+          <div class="prob-tok">"Bordeaux"</div>
+          <div class="prob-bar-wrap"><div class="prob-bar-fill" style="width:8%"></div></div>
+          <div class="prob-pct">7.9%</div>
+        </div>
+      </div>
+
+      <h3>Other sampling strategies</h3>
+      <p>
+        Temperature is often combined with:
+      </p>
+      <ul style="margin: 0 0 14px 20px; color: #cdd9e5; font-size:14px; line-height:2">
+        <li><strong>Top-k sampling</strong> — only sample from the k most probable tokens (discard everything else).</li>
+        <li><strong>Top-p (nucleus) sampling</strong> — only sample from the smallest set of tokens whose cumulative probability exceeds p (e.g. 0.9).</li>
+        <li><strong>Repetition penalty</strong> — reduce the score of tokens that already appeared in the context, to discourage repetitive output.</li>
+      </ul>
+
+      <div class="callout sim">
+        <div class="callout-title">🔬 In this simulation</div>
+        The simulation implements temperature-scaled softmax and a repetition penalty
+        (×0.25 for tokens in the last 10 context positions). The top-k candidate table
+        is stored in the trace at every step — you can inspect it in both the main UI
+        (probability pills) and the Trace Viewer (full table with scores).
+        The default temperature is <strong>0.7</strong>.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="agents">
+      <h2><span class="icon">🤖</span> 7. Agents &amp; tool use</h2>
+
+      <p>
+        A bare LLM is a text-in / text-out function. It cannot browse the web, run code,
+        or call an API. <strong>Agents</strong> extend LLMs with the ability to use
+        <strong>tools</strong> and take multi-step actions.
+      </p>
+
+      <h3>How tool use works in real systems</h3>
+      <p>
+        Modern frameworks (OpenAI function calling, Anthropic tool use) work roughly like this:
+      </p>
+      <ol style="margin: 0 0 14px 20px; color: #cdd9e5; font-size: 14px; line-height:2">
+        <li>A list of available tools (name, description, JSON schema of parameters) is prepended
+            to the system prompt.</li>
+        <li>The LLM is fine-tuned to output a structured JSON block when it decides a tool is
+            needed (instead of plain text).</li>
+        <li>The host application parses that JSON, calls the real tool, and inserts the result
+            back into the conversation as a new message.</li>
+        <li>The LLM continues generating from there, now with the tool result in its context.</li>
+      </ol>
+
+      <div class="diagram">
+  User:  "What is the weather in Rome?"
+    │
+    ▼
+  LLM (decides tool needed):
+    <span class="o">{ "tool": "get_weather", "args": { "city": "Rome" } }</span>
+    │
+    ▼
+  Host calls real weather API  →  <span class="g">"18°C, partly cloudy"</span>
+    │
+    ▼
+  LLM continues:
+    <span class="hl">"The current weather in Rome is 18°C with partly cloudy skies."</span></div>
+
+      <h3>Chain-of-thought reasoning</h3>
+      <p>
+        Before deciding which tool to call (or whether to call one at all), frontier models
+        often produce a <strong>reasoning trace</strong> — a scratchpad of intermediate
+        thoughts. In the OpenAI "o" series and DeepSeek-R1, this trace is explicit and
+        inspectable. In older models it was hidden or only possible via prompting
+        ("Let's think step by step").
+      </p>
+
+      <div class="callout sim">
+        <div class="callout-title">🔬 In this simulation</div>
+        <code>ReasoningAgent</code> uses simple rule-based heuristics instead of an LLM:
+        <ul style="margin: 6px 0 0 16px; font-size:13px; line-height:1.9">
+          <li>If the query contains an arithmetic expression + a trigger word ("calculate", "what is", …) → call the <strong>Calculator</strong> tool.</li>
+          <li>If it starts with a factual question word ("what is", "explain", …) → call the <strong>FakeSearch</strong> tool (in-memory knowledge base).</li>
+          <li>Otherwise → skip tools and go straight to the LLM core.</li>
+        </ul>
+        Every decision step is written explicitly into the trace so you can follow the
+        reasoning in the Trace Viewer — exactly as you would with a real chain-of-thought
+        system.
+      </div>
+
+      <div class="callout detail">
+        <div class="callout-title">🔒 Security note: the Calculator tool</div>
+        <code>CalculatorTool</code> uses Python's <code>eval()</code>, but only after
+        validating the expression against a strict regex whitelist
+        (<code>^[\d\s\+\-\*\/\(\)\.]+$</code>) and executing with
+        <code>__builtins__={}</code> — so there is no access to any Python built-in
+        or variable. Even so, <code>eval()</code> should never be used on untrusted
+        input in a real production system.
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="simulation">
+      <h2><span class="icon">🔬</span> 8. What this simulation actually does</h2>
+
+      <p>
+        The full pipeline, from the moment you hit <strong>Ask →</strong> to the
+        moment the trace is ready:
+      </p>
+
+      <div class="diagram">
+  <span class="hl">browser</span>  →  POST /run  →  <span class="g">server.py</span>
+                                          │
+                         ┌────────────────┼────────────────┐
+                         ▼                ▼                ▼
+  1. <span class="o">PromptBuilder</span>         2. <span class="o">SimpleTokenizer</span>   3. <span class="o">ReasoningAgent</span>
+     system + user text    whitespace split    intent detection
+     → full prompt         → token IDs         → tool dispatch
+                                          │
+                         ┌───────────────┼───────────────────┐
+                         ▼               │                   ▼
+              4a. <span class="y">CalculatorTool</span>  │        4b. <span class="y">FakeSearchTool</span>
+                  safe eval           │           keyword search
+                  arithmetic          │           in-memory KB
+                         └───────────►▼◄──────────────────────┘
+                                          │
+                         5. <span class="o">LLMCore.generate()</span>
+                            for each target token:
+                              • draw top_k candidates
+                              • pseudo-random scores
+                              • repetition penalty
+                              • softmax + temperature
+                              • log probability table
+                                          │
+                         6. <span class="g">final answer</span>  +  <span class="p">llm_trace.json</span>
+                                          │
+  <span class="hl">browser</span>  ←  JSON  ←──────────────────────┘
+  animated token pills
+  + "View Trace" button</div>
+
+      <p>
+        Every one of these steps writes a <strong>TraceStep</strong> into the append-only
+        <code>Trace</code> object. At the end the trace is serialised to
+        <code>llm_trace.json</code> and served at <code>GET /llm_trace.json</code>.
+        The Trace Viewer fetches it and renders every step as an expandable card.
+      </p>
+
+      <h3>Real vs. simulated — side by side</h3>
+
+      <table class="compare">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th class="real">Real LLM</th>
+            <th class="sim">This simulation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Tokenizer</strong></td>
+            <td>BPE / WordPiece, fixed vocabulary of 32k–200k tokens</td>
+            <td>Whitespace + punctuation regex, dynamic vocabulary</td>
+          </tr>
+          <tr>
+            <td><strong>Embeddings</strong></td>
+            <td>Learned dense vectors (768–8192 dims)</td>
+            <td>Not implemented — skipped</td>
+          </tr>
+          <tr>
+            <td><strong>Attention</strong></td>
+            <td>Multi-head self-attention across full context</td>
+            <td>Not implemented — context is just a list of IDs</td>
+          </tr>
+          <tr>
+            <td><strong>Token scores</strong></td>
+            <td>Output of the final linear layer (learned logits)</td>
+            <td>Pseudo-random scores + repetition penalty heuristic</td>
+          </tr>
+          <tr>
+            <td><strong>Softmax</strong></td>
+            <td>Applied to all ~100k logits</td>
+            <td>Applied to top_k=6 candidates — same math, smaller scale</td>
+          </tr>
+          <tr>
+            <td><strong>Temperature</strong></td>
+            <td>Scales logits before softmax</td>
+            <td>Same formula, same effect — fully functional</td>
+          </tr>
+          <tr>
+            <td><strong>Sampling</strong></td>
+            <td>Draw from distribution (top-p / top-k)</td>
+            <td>Target token is forced (but probability table is real)</td>
+          </tr>
+          <tr>
+            <td><strong>Tool use</strong></td>
+            <td>LLM outputs structured JSON; framework parses it</td>
+            <td>Rule-based intent detection; same logical structure</td>
+          </tr>
+          <tr>
+            <td><strong>Reasoning trace</strong></td>
+            <td>Hidden (or via CoT prompting / o-series)</td>
+            <td>Explicit, logged to trace at every step</td>
+          </tr>
+          <tr>
+            <td><strong>Observability</strong></td>
+            <td>Black box (unless you add logging)</td>
+            <td>Every decision visible in the Trace Viewer</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <section class="section" id="limits">
+      <h2><span class="icon">⚠️</span> 9. What this simulation cannot show</h2>
+
+      <p>
+        This project is deliberately simplified for educational purposes.
+        Here are the most important things that are <em>not</em> represented:
+      </p>
+
+      <ul style="margin: 0 0 14px 20px; color: #cdd9e5; font-size:14px; line-height:2.1">
+        <li>
+          <strong>Emergent capabilities</strong> — the ability to translate, reason
+          about logic, write code, etc. comes from training on enormous datasets with
+          billions of parameters, not from the architecture alone.
+        </li>
+        <li>
+          <strong>RLHF / RLAIF</strong> — modern assistants (ChatGPT, Claude) are fine-tuned
+          with reinforcement learning from human (or AI) feedback, which fundamentally
+          shapes tone, safety, and instruction-following.
+        </li>
+        <li>
+          <strong>True semantic understanding</strong> — the simulation's token scores
+          are random; a real model's scores encode the statistical regularities of human
+          language.
+        </li>
+        <li>
+          <strong>KV-cache</strong> — real inference reuses the key/value tensors from
+          previous tokens to avoid re-computing the full forward pass at every step (huge
+          performance win). Not relevant here since there is no forward pass.
+        </li>
+        <li>
+          <strong>Quantization & hardware</strong> — running a 70B model requires tens of
+          GB of VRAM. Techniques like 4-bit quantization (GGUF) and speculative decoding
+          are critical in practice.
+        </li>
+      </ul>
+
+      <div class="callout info">
+        <div class="callout-title">📚 Going further</div>
+        To understand the real machinery in depth:
+        <ul style="margin: 6px 0 0 16px; font-size:13px; line-height:1.9">
+          <li><em>Attention Is All You Need</em> — Vaswani et al. (2017), the original Transformer paper</li>
+          <li><em>The Illustrated GPT-2</em> by Jay Alammar — incredibly clear visual walkthrough</li>
+          <li><em>nanoGPT</em> by Andrej Karpathy — a minimal, readable GPT implementation in ~300 lines of Python</li>
+          <li><em>Let's build GPT</em> — Karpathy's 3-hour video building a GPT from scratch</li>
+        </ul>
+      </div>
+
+      <div style="margin-top:32px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-align:center">
+        <p style="margin-bottom:14px;color:var(--muted);font-size:14px">Ready to see the pipeline in action?</p>
+        <a href="/" style="display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#000;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;text-decoration:none">
+          Ask a question →
+        </a>
+      </div>
+    </section>
+
+  </article>
+</div>
+
+<script>
+/* ── Active ToC link on scroll ───────────────────────────────────────────── */
+const sections = document.querySelectorAll(".section[id]");
+const tocLinks = document.querySelectorAll(".toc a[href^='#']");
+
+const observer = new IntersectionObserver(
+  entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        tocLinks.forEach(a => {
+          a.classList.toggle("active", a.getAttribute("href") === "#" + entry.target.id);
+        });
+      }
+    });
+  },
+  { rootMargin: "-20% 0px -70% 0px" }
+);
+
+sections.forEach(s => observer.observe(s));
+</script>
+
+<footer>
+  <span>© 2026 <a href="https://www.stefanoperna.it" target="_blank" rel="noopener">Stefano Perna</a></span>
+  <span class="footer-sep">·</span>
+  <a href="https://github.com/pernastefano/llm_sim" target="_blank" rel="noopener">GitHub</a>
+</footer>
+</body>
+</html>

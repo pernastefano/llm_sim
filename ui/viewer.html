@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LLM Trace Viewer</title>
+  <title>Trace Viewer - LLM-sim</title>
   <style>
     /* ── Reset & base ───────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -76,7 +76,7 @@
     }
 
     /* ── Buttons & inputs ───────────────────────────────────────────────── */
-    button, label.btn {
+    button {
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
@@ -87,10 +87,8 @@
       transition: background 0.15s, border-color 0.15s;
       white-space: nowrap;
     }
-    button:hover, label.btn:hover { background: #2d333b; border-color: var(--accent); }
+    button:hover { background: #2d333b; border-color: var(--accent); }
     button:active { transform: scale(0.97); }
-
-    #file-input { display: none; }
 
     /* ── Summary bar ────────────────────────────────────────────────────── */
     #summary {
@@ -284,7 +282,7 @@
 <body>
 
 <header>
-  <a class="logo" href="/">🧠 LLM Simulation Demo</a>
+  <a class="logo" href="/">🧠 LLM-sim</a>
   <nav>
     <a href="/">Ask</a>
     <a href="/about">How it works</a>
@@ -295,8 +293,6 @@
 <main>
   <div id="trace-toolbar">
     <button id="auto-load-btn">⚡ Auto-load llm_trace.json</button>
-    <label class="btn" for="file-input">📂 Browse file…</label>
-    <input type="file" id="file-input" accept=".json" />
     <button id="expand-all-btn" style="display:none">↕ Expand all</button>
   </div>
   <div id="filter-bar">
@@ -313,13 +309,6 @@
     <div id="placeholder">
       <div class="big">📄</div>
       <h2>No trace loaded</h2>
-      <p>Click <strong>Auto-load llm_trace.json</strong> (requires HTTP server)<br/>
-         or <strong>Browse file…</strong> to load a trace file.</p>
-      <p style="margin-top:16px;font-family:monospace;font-size:12px;color:#484f58;">
-        Tip: run  <strong style="color:var(--accent)">python -m http.server 8000</strong>
-        from the project root, then visit<br/>
-        <strong style="color:var(--accent)">http://localhost:8000/ui/viewer.html</strong>
-      </p>
     </div>
   </div>
 </main>
@@ -531,15 +520,6 @@ function showError(msg) {
     `<div class="error-banner">⚠️ ${escHtml(msg)}</div>`;
 }
 
-// File input handler
-document.getElementById("file-input").addEventListener("change", function () {
-  const file = this.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => loadTrace(e.target.result);
-  reader.readAsText(file);
-});
-
 // Auto-fetch (works when served via HTTP server, not file://)
 document.getElementById("auto-load-btn").addEventListener("click", function () {
   fetch("../llm_trace.json")
@@ -587,17 +567,6 @@ function applyFilter() {
     card.style.display = card.dataset.name.includes(q) ? "" : "none";
   });
 }
-
-// Drag-and-drop support
-document.body.addEventListener("dragover", e => e.preventDefault());
-document.body.addEventListener("drop", function (e) {
-  e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => loadTrace(ev.target.result);
-  reader.readAsText(file);
-});
 
 // Auto-load when opened with ?autoload in the URL.
 // The main web UI (index.html) appends this parameter after running a query

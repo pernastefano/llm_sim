@@ -11,6 +11,7 @@ Design rules:
 from __future__ import annotations
 
 import ast
+import datetime
 import math
 import operator
 import re
@@ -208,7 +209,154 @@ _KNOWLEDGE_BASE: dict[str, str] = {
         "with enabling computers to understand, interpret, and generate "
         "human language."
     ),
+    "rag": (
+        "Retrieval-Augmented Generation (RAG) combines a retrieval step — "
+        "fetching relevant documents from an external store — with a "
+        "generative LLM so the model can answer questions using up-to-date "
+        "or proprietary knowledge without retraining."
+    ),
+    "fine-tuning": (
+        "Fine-tuning adapts a pre-trained model to a specific task or domain "
+        "by continuing training on a smaller, curated dataset. Techniques "
+        "such as LoRA and QLoRA reduce the number of trainable parameters to "
+        "lower memory and compute requirements."
+    ),
+    "rlhf": (
+        "Reinforcement Learning from Human Feedback (RLHF) aligns an LLM with "
+        "human preferences by training a reward model on human comparisons "
+        "and then optimising the LLM against that reward using PPO or similar "
+        "RL algorithms."
+    ),
+    "hallucination": (
+        "Hallucination occurs when an LLM generates plausible-sounding but "
+        "factually incorrect or fabricated information. Mitigations include "
+        "RAG, grounding outputs to retrieved sources, and self-consistency "
+        "sampling."
+    ),
+    "context window": (
+        "The context window is the maximum number of tokens an LLM can process "
+        "in a single forward pass, covering both the prompt and the generated "
+        "output. Larger windows (e.g. 128 k tokens) allow longer documents "
+        "but increase memory usage quadratically for standard attention."
+    ),
+    "prompt engineering": (
+        "Prompt engineering is the practice of crafting input text to elicit "
+        "desired behaviour from an LLM. Techniques include few-shot examples, "
+        "chain-of-thought instructions, role assignment, and output format "
+        "constraints."
+    ),
+    "gpu": (
+        "Graphics Processing Units (GPUs) accelerate deep learning by "
+        "performing thousands of floating-point operations in parallel. "
+        "Modern training clusters use specialised chips such as NVIDIA H100 "
+        "or Google TPUs to handle the massive matrix multiplications required "
+        "by Transformer models."
+    ),
+    "bert": (
+        "BERT (Bidirectional Encoder Representations from Transformers) is a "
+        "Transformer encoder pre-trained with masked language modelling. It "
+        "produces rich contextual embeddings and is widely used for "
+        "classification, NER, and question-answering tasks."
+    ),
+    "gpt": (
+        "GPT (Generative Pre-trained Transformer) is a decoder-only Transformer "
+        "trained with causal language modelling to predict the next token. "
+        "Successive GPT versions (GPT-2, GPT-3, GPT-4) scaled parameters and "
+        "data to achieve strong general-purpose generation."
+    ),
+    "vector database": (
+        "A vector database stores high-dimensional embedding vectors and "
+        "supports approximate nearest-neighbour (ANN) search, making it the "
+        "standard retrieval backend for RAG systems. Examples include "
+        "Pinecone, Weaviate, Qdrant, and pgvector."
+    ),
+    "neural network": (
+        "A neural network is a computational model composed of layers of "
+        "interconnected nodes (neurons). Each neuron applies a weighted sum "
+        "followed by a non-linear activation function. Deep networks with many "
+        "layers can learn hierarchical representations from raw data."
+    ),
+    "backpropagation": (
+        "Backpropagation computes gradients of the loss with respect to every "
+        "parameter by applying the chain rule from the output layer back to "
+        "the input. These gradients are used by optimisers such as Adam to "
+        "update the weights."
+    ),
+    "gradient descent": (
+        "Gradient descent iteratively moves model parameters in the direction "
+        "opposite to the gradient of the loss function. Variants such as SGD, "
+        "Adam, and AdaFactor adapt the learning rate per parameter to speed "
+        "up convergence."
+    ),
+    "overfitting": (
+        "Overfitting occurs when a model learns the training data too closely "
+        "and fails to generalise to new examples. Common remedies include "
+        "dropout, weight decay (L2 regularisation), early stopping, and "
+        "data augmentation."
+    ),
+    "benchmark": (
+        "Benchmarks evaluate LLM capabilities on standardised tasks. Popular "
+        "examples include MMLU (knowledge), HumanEval (coding), GSM8K (maths), "
+        "and BIG-Bench Hard (complex reasoning). Results must be interpreted "
+        "carefully due to data contamination risks."
+    ),
+    "multimodal": (
+        "Multimodal models process and generate information across multiple "
+        "modalities — text, images, audio, video. Examples include GPT-4o and "
+        "Gemini Ultra, which accept interleaved image-text inputs and produce "
+        "text (and sometimes image) outputs."
+    ),
+    "inference": (
+        "LLM inference is the process of running a trained model to generate "
+        "output tokens. Optimisation techniques include quantisation (INT8, "
+        "INT4), KV-cache reuse, speculative decoding, and continuous batching "
+        "to maximise GPU throughput."
+    ),
+    "quantization": (
+        "Quantization reduces the numerical precision of model weights and "
+        "activations (e.g. from FP32 to INT8 or INT4) to shrink model size "
+        "and speed up inference with minimal accuracy loss. GPTQ and AWQ are "
+        "popular post-training quantization methods for LLMs."
+    ),
+    "lora": (
+        "LoRA (Low-Rank Adaptation) fine-tunes only a small set of low-rank "
+        "weight matrices injected into the original layers, drastically "
+        "reducing the number of trainable parameters. QLoRA combines LoRA "
+        "with 4-bit quantization for consumer GPU fine-tuning."
+    ),
+    "prompt injection": (
+        "Prompt injection is an attack where malicious text in user input or "
+        "retrieved documents overrides the system prompt and hijacks LLM "
+        "behaviour. Defences include strict output parsing, sandboxing tool "
+        "calls, and privilege separation between system and user messages."
+    ),
 }
+
+
+# ---------------------------------------------------------------------------
+# Clock
+# ---------------------------------------------------------------------------
+
+
+class ClockTool:
+    """
+    Returns the current local date and time.
+
+    No input is required; any value passed is ignored.
+    """
+
+    name = "clock"
+    description = "Returns the current local date and time."
+
+    def run(self, _input: str = "") -> ToolResult:
+        now = datetime.datetime.now()
+        output = now.strftime("The current time is %H:%M on %A, %B %d, %Y.")
+        return ToolResult(
+            tool_name=self.name,
+            input=_input,
+            output=output,
+            success=True,
+        )
 
 
 class FakeSearchTool:

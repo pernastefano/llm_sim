@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .tools import CalculatorTool, FakeSearchTool, ToolResult
+from .tools import CalculatorTool, ClockTool, FakeSearchTool, ToolResult
 from .trace import Trace
 
 
@@ -27,6 +27,7 @@ class ReasoningResult:
     tool_input: str | None
     tool_result: ToolResult | None
     llm_prompt: str
+    intent: str | None = None  # e.g. "greeting", "identity", "wellbeing"
 
 
 class ReasoningAgent:
@@ -42,9 +43,102 @@ class ReasoningAgent:
 
     def __init__(self) -> None:
         self.calculator = CalculatorTool()
+        self.clock = ClockTool()
         self.search = FakeSearchTool()
 
     # -- heuristics ----------------------------------------------------------
+
+    @staticmethod
+    def _detect_conversational_intent(query: str) -> str | None:
+        """
+        Return a conversational intent tag if the query is not a
+        knowledge/math request, so it can be answered without tools.
+
+        Recognised intents:
+          "greeting"  — hello, hi, hey, …
+          "identity"  — what is your name, who are you, …
+          "wellbeing" — how are you, are you ok, …
+        """
+        q = query.lower().strip().rstrip("?.!,")
+
+        _GREETING_TOKENS = {
+            "hello", "hi", "hey", "greetings", "howdy",
+            "good morning", "good afternoon", "good evening", "good night",
+            "ciao", "salut", "hola",
+        }
+        _IDENTITY_PHRASES = (
+            "what is your name",
+            "what's your name",
+            "who are you",
+            "what are you",
+            "what can you do",
+            "tell me about yourself",
+            "introduce yourself",
+            "your name",
+        )
+        _WELLBEING_PHRASES = (
+            "how are you",
+            "how do you do",
+            "how are you doing",
+            "are you ok",
+            "are you fine",
+            "how is it going",
+            "how's it going",
+        )
+
+        # Time/date queries are handled by the Clock tool, not as conversational.
+        _TIME_PHRASES = (
+            "what time is it",
+            "what's the time",
+            "what is the time",
+            "current time",
+            "what day is it",
+            "what is today",
+            "what's today",
+            "what is the date",
+            "what's the date",
+            "current date",
+            "today's date",
+        )
+        for phrase in _TIME_PHRASES:
+            if phrase in q:
+                return None  # let the Clock tool handle it
+
+        # Greeting: query is (or starts with) a greeting token.
+        first_token = q.split()[0] if q.split() else ""
+        if q in _GREETING_TOKENS or first_token in _GREETING_TOKENS:
+            return "greeting"
+
+        for phrase in _IDENTITY_PHRASES:
+            if phrase in q:
+                return "identity"
+
+        for phrase in _WELLBEING_PHRASES:
+            if phrase in q:
+                return "wellbeing"
+
+        return None
+
+    @staticmethod
+    def _is_time_query(query: str) -> bool:
+        """
+        Return True if the query is asking for the current time or date.
+        """
+        _TIME_PHRASES = (
+            "what time is it",
+            "what's the time",
+            "what is the time",
+            "current time",
+            "what day is it",
+            "what is today",
+            "what's today",
+            "what is the date",
+            "what's the date",
+            "current date",
+            "today's date",
+        )
+        q = query.lower().strip().rstrip("?.!,")
+        return any(phrase in q for phrase in _TIME_PHRASES)
 
     @staticmethod
     def _extract_math(query: str) -> str | None:
@@ -103,45 +197,68 @@ class ReasoningAgent:
         tool_used: str | None = None
         tool_input: str | None = None
         tool_result: ToolResult | None = None
+        intent: str | None = None
 
         steps.append(f"Received user query: '{query}'")
 
-        # ── Step 1: Check for arithmetic ────────────────────────────────────
-        steps.append("Step 1 — Intent detection: scanning for arithmetic expression.")
-        math_expr = self._extract_math(query)
-
-        if math_expr:
-            steps.append(f"  → Arithmetic expression found: '{math_expr}'")
-            steps.append("  → Decision: invoke Calculator tool.")
-            tool_used = self.calculator.name
-            tool_input = math_expr
-            tool_result = self.calculator.run(math_expr)
-            if tool_result.success:
-                steps.append(f"  → Calculator returned: {tool_result.output}")
-            else:
-                steps.append(f"  → Calculator failed: {tool_result.error}")
-
+        # ── Step 0: Check for conversational intent ──────────────────────────
+        steps.append("Step 0 — Intent detection: scanning for conversational intent.")
+        intent = self._detect_conversational_intent(query)
+        if intent:
+            steps.append(f"  → Conversational intent detected: '{intent}'")
+            steps.append("  → Decision: no tool needed, compose direct response.")
         else:
-            steps.append("  → No arithmetic detected.")
+            steps.append("  → No conversational intent detected.")
 
-            # ── Step 2: Check for factual question ──────────────────────────
-            steps.append("Step 2 — Intent detection: scanning for factual question.")
-            topic = self._extract_search_topic(query)
-
-            if topic:
-                steps.append(f"  → Factual topic identified: '{topic}'")
-                steps.append("  → Decision: invoke Search tool.")
-                tool_used = self.search.name
-                tool_input = topic
-                tool_result = self.search.run(topic)
-                if tool_result.success:
-                    steps.append(
-                        f"  → Search returned {len(tool_result.output)} chars of context."
-                    )
-                else:
-                    steps.append(f"  → Search found nothing: {tool_result.error}")
+            # ── Step 1: Check for time/date query ─────────────────────────────
+            steps.append("Step 1 — Intent detection: checking for time or date query.")
+            if self._is_time_query(query):
+                steps.append("  → Time/date query detected.")
+                steps.append("  → Decision: invoke Clock tool.")
+                tool_used = self.clock.name
+                tool_input = query
+                tool_result = self.clock.run(query)
+                steps.append(f"  → Clock returned: {tool_result.output}")
             else:
-                steps.append("  → Not a recognised factual question.  No tool needed.")
+                steps.append("  → No time/date query detected.")
+
+            # ── Step 2: Check for arithmetic ─────────────────────────────────
+            if tool_used is None:
+              steps.append("Step 2 — Intent detection: scanning for arithmetic expression.")
+              math_expr = self._extract_math(query)
+
+              if math_expr:
+                  steps.append(f"  → Arithmetic expression found: '{math_expr}'")
+                  steps.append("  → Decision: invoke Calculator tool.")
+                  tool_used = self.calculator.name
+                  tool_input = math_expr
+                  tool_result = self.calculator.run(math_expr)
+                  if tool_result.success:
+                      steps.append(f"  → Calculator returned: {tool_result.output}")
+                  else:
+                      steps.append(f"  → Calculator failed: {tool_result.error}")
+
+              else:
+                  steps.append("  → No arithmetic detected.")
+
+                  # ── Step 3: Check for factual question ───────────────────────
+                  steps.append("Step 3 — Intent detection: scanning for factual question.")
+                  topic = self._extract_search_topic(query)
+
+                  if topic:
+                      steps.append(f"  → Factual topic identified: '{topic}'")
+                      steps.append("  → Decision: invoke Search tool.")
+                      tool_used = self.search.name
+                      tool_input = topic
+                      tool_result = self.search.run(topic)
+                      if tool_result.success:
+                          steps.append(
+                              f"  → Search returned {len(tool_result.output)} chars of context."
+                          )
+                      else:
+                          steps.append(f"  → Search found nothing: {tool_result.error}")
+                  else:
+                      steps.append("  → Not a recognised factual question.  No tool needed.")
 
         # ── Step 3: Compose augmented LLM prompt ────────────────────────────
         steps.append("Step 3 — Composing internal LLM prompt.")
@@ -187,4 +304,5 @@ class ReasoningAgent:
             tool_input=tool_input,
             tool_result=tool_result,
             llm_prompt=llm_prompt,
+            intent=intent,
         )

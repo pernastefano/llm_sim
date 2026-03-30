@@ -153,11 +153,19 @@ class LLMPipeline:
         if reasoning.tool_result and reasoning.tool_result.success:
             if reasoning.tool_used == "calculator":
                 return f"The result is {reasoning.tool_result.output} ."
+            if reasoning.tool_used == "clock":
+                return reasoning.tool_result.output
             if reasoning.tool_used == "search":
-                # Use first 12 words from the search result to keep it concise.
-                words = reasoning.tool_result.output.split()[:12]
+                # Use first 30 words from the search result to keep it concise.
+                words = reasoning.tool_result.output.split()[:30]
                 return " ".join(words) + " ."
-        return "I can help you with that question ."
+        if reasoning.intent == "greeting":
+            return "Hello ! How can I assist you today ?"
+        if reasoning.intent == "identity":
+            return "I am a simulated AI assistant . I can answer questions and perform calculations ."
+        if reasoning.intent == "wellbeing":
+            return "I am functioning well , thank you for asking !"
+        return "I am sorry , I cannot help with that request ."
 
     @staticmethod
     def _compose_answer(reasoning: ReasoningResult, generated_text: str) -> str:

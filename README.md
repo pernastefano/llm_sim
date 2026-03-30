@@ -1,4 +1,4 @@
-# 🧠 LLM Simulation Demo
+# 🧠 LLM-sim
 
 A **clean, modular, educational Python project** that simulates the internal
 behavior of a Large Language Model — including prompt construction, tokenization,

@@ -102,7 +102,9 @@ function renderGenerationStep(data) {
         <td>${c.score}</td>
         <td>${(c.probability * 100).toFixed(2)}%</td>
         <td class="prob-bar-cell">
-          <div class="prob-bar ${isSelected ? "selected" : ""}" style="width:${barPct}%"></div>
+          <div class="prob-bar-track">
+            <div class="prob-bar-fill ${isSelected ? "selected" : ""}" data-pct="${barPct}"></div>
+          </div>
         </td>
       </tr>`;
     });
@@ -138,6 +140,9 @@ function renderStep(step, index) {
     inner = "<div class='json-block'>" + renderJson(step.data) + "</div>";
   }
   body.innerHTML = inner;
+  body.querySelectorAll(".prob-bar-fill[data-pct]").forEach(el => {
+    el.style.width = el.dataset.pct + "%";
+  });
 
   details.appendChild(summary);
   details.appendChild(body);
@@ -227,6 +232,9 @@ document.addEventListener("langchange", () => {
           body.innerHTML = name === "agent_reasoning"
             ? renderAgentReasoning(step.data)
             : renderGenerationStep(step.data);
+          body.querySelectorAll(".prob-bar-fill[data-pct]").forEach(el => {
+            el.style.width = el.dataset.pct + "%";
+          });
         }
       }
     });

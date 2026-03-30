@@ -195,12 +195,10 @@ def set_security_headers(response: object) -> object:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # NOTE: 'unsafe-inline' is needed because all JS/CSS is currently inline.
-    # To remove it: move scripts/styles to external files and use CSP nonces.
     response.headers["Content-Security-Policy"] = (
         "default-src 'none'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
         "font-src 'self'; "
@@ -239,6 +237,26 @@ def trace_viewer() -> object:
 @app.route("/about")
 def about() -> object:
     return send_from_directory(str(_UI_DIR), "about.html")
+
+
+@app.route("/css/<path:filename>")
+def css_static(filename: str) -> object:
+    return send_from_directory(str(_UI_DIR / "css"), filename)
+
+
+@app.route("/js/<path:filename>")
+def js_static(filename: str) -> object:
+    return send_from_directory(str(_UI_DIR / "js"), filename)
+
+
+@app.route("/img/<path:filename>")
+def img_static(filename: str) -> object:
+    return send_from_directory(str(_UI_DIR / "img"), filename)
+
+
+@app.route("/lang/<path:filename>")
+def lang_static(filename: str) -> object:
+    return send_from_directory(str(_UI_DIR / "lang"), filename)
 
 
 @app.route("/llm_trace.json")

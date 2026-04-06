@@ -446,3 +446,11 @@ cp config/.env.example config/.env
   `src/tools.py`.
 - **Add a new trace step**: call `trace.add(name, description, data)` from anywhere
   in the pipeline — it will automatically appear in the HTML viewer.
+
+---
+
+## Credits
+Stefano Perna
+
+## License
+This project is licensed under the MIT License. See the `LICENSE` file for details.
